@@ -2,7 +2,7 @@ import { parse, v4 as uuidv4 } from "uuid";
 
 import styles from "./Project.module.css";
 
-import { json, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useState, useEffect } from "react";
 
 import Loading from "../Layouts/Loading";
@@ -10,11 +10,13 @@ import Container from "../Layouts/Container";
 import Message from "../Layouts/Message";
 import ProjectForm from "../project/ProjectForm";
 import ServiceForm from "../Service/ServiceForm";
+import ServiceCard from "../Service/ServiceCard";
 
 function Project() {
   const { id } = useParams();
 
   const [project, setProject] = useState([]);
+  const [services, setServices] = useState([]);
   const [showProjetctForm, setShowProjectForm] = useState(false);
   const [showServiceForm, setShowServiceForm] = useState(false);
   const [message, setMessage] = useState();
@@ -31,6 +33,7 @@ function Project() {
         .then((resp) => resp.json())
         .then((data) => {
           setProject(data);
+          setServices(data.services);
         })
         .catch((err) => console.log(err));
     }, 300);
@@ -77,7 +80,7 @@ function Project() {
 
     //maximum value validadtion
     if (newCost > parseFloat(project.budget)) {
-      setMessage("Orçamento ultrapassado, varifique o calor do serviço");
+      setMessage("Orçamento ultrapassado, verifique o calor do serviço");
       setType("error");
       project.services.pop();
       return false;
@@ -87,17 +90,42 @@ function Project() {
     project.cost = newCost;
 
     // update project
-    fetch(`http://localhosto:5000/projects/${project.id}`, {
+    fetch(`http://localhost:5000/projects/${project.id}`, {
       method: "PATCH",
       headers: {
-        "Content-Type": "application/json",
+        "content-Type": "application/json",
       },
       body: JSON.stringify(project),
     })
       .then((resp) => resp.json())
       .then((data) => {
-        //exibi os serviços
-        console.log(data);
+        setShowServiceForm(false);
+      })
+      .catch((err) => console.log(err));
+  }
+
+  function removeService(id, cost) {
+    const servicesUpdated = project.services.filter(
+      (service) => service.id !== id
+    );
+
+    const projetctUpdated = project;
+
+    projetctUpdated.services = servicesUpdated;
+    projetctUpdated.cost = parseFloat(projetctUpdated.cost) - parseFloat(cost);
+
+    fetch(`http://localhost:5000/projects/${projetctUpdated.id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(projetctUpdated),
+    })
+      .then((resp) => resp.json())
+      .then((data) => {
+        setProject(projetctUpdated);
+        setServices(servicesUpdated);
+        setMessage("Serviço removido com sucesso!");
       })
       .catch((err) => console.log(err));
   }
@@ -157,9 +185,20 @@ function Project() {
                   />
                 )}
               </div>
-              <h2>Serviços</h2>
+              <h2>Serviços:</h2>
               <Container customClass="start">
-                <p>Itens de serviços</p>
+                {services.length > 0 &&
+                  services.map((service) => (
+                    <ServiceCard
+                      id={service.id}
+                      name={service.name}
+                      cost={service.cost}
+                      description={service.description}
+                      key={service.id}
+                      handleRemove={removeService}
+                    />
+                  ))}
+                {services.length === 0 && <p>Não há serviços cadastrados.</p>}
               </Container>
             </div>
           </Container>
